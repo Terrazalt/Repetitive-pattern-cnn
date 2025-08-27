@@ -1,6 +1,7 @@
 from src.routes.yolo.main import router as yolo_router
 from src.routes.add_new_register.main import router as add_new_register_router
 from src.routes.RL.main import router as rl_router
+from src.routes.RLHF.main import router as rlhf_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -24,3 +25,4 @@ app.include_router(
     add_new_register_router, prefix="/add-new-train-register", tags=["add_new_register"]
 )
 app.include_router(rl_router, prefix="/rl", tags=["rl"])
+app.include_router(rlhf_router, prefix="/rlhf", tags=["rlhf"])

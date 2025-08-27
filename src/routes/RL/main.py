@@ -25,7 +25,7 @@ def retrain_model():
     )
     rf = Roboflow(api_key=os.getenv("ROBOFLOW_API_KEY"))
     project = rf.workspace(os.getenv("WORKSPACE_ID")).project(os.getenv("PROJECT_ID"))
-    version = project.version(2)
+    version = project.version(3)
     dataset = version.download("yolov8")
 
     # Usa tu propio modelo como base

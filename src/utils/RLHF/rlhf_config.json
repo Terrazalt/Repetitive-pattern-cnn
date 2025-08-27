@@ -1,0 +1,13 @@
+{
+  "enable": true,
+  "epoch_trigger": 3,
+  "reward_factor": 0.004,
+  "feedback_quality": 0.59,
+  "_metadata": {
+    "timestamp": "2025-08-06 00:33:58.824430",
+    "epoch_when_feedback_given": 3,
+    "original_quality_score": 0.59,
+    "human_comments": "Sin comentarios",
+    "interpretation": "Predicciones regulares - Ajuste m\u00ednimo"
+  }
+}
