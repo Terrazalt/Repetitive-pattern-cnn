@@ -6,7 +6,7 @@ Repetitive-Patterns-MTI-2/*
 src/images/*
 # C extensions
 *.so
-
+*.pth
 # Distribution / packaging
 .Python
 build/
