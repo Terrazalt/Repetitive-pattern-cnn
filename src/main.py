@@ -1,6 +1,7 @@
 from src.routes.yolo.main import router as yolo_router
 from src.routes.add_new_register.main import router as add_new_register_router
 from src.routes.RL.main import router as rl_router
+from src.routes.RL_RETINANET.main import router as rl_retinanet_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -20,6 +21,7 @@ app.add_middleware(
 )
 
 app.include_router(yolo_router, prefix="/yolo", tags=["yolo"])
+app.include_router(rl_retinanet_router, prefix="/rl-retinanet", tags=["rl-retinanet"])
 app.include_router(
     add_new_register_router, prefix="/add-new-train-register", tags=["add_new_register"]
 )
