@@ -32,17 +32,17 @@ def retrain_model():
     model = YOLO(model_path)  # <--- aquí va tu checkpoint
 
     model.train(
-        data="/home/terrazalt/Documents/magister/Repetitive-Archetypes-Patterns-RL-APP/CNN/Repetitive-Patterns-MTI-2/data.yaml",
+        data="splitted-repetitive-patterns-4/data.yaml",
         epochs=1,
         imgsz=(768, 1024),
         batch=4,
         name="train",
         lr0=0.001,
-        project="/home/terrazalt/Documents/magister/Repetitive-Archetypes-Patterns-RL-APP/CNN/Repetitive-Patterns-MTI-2/runs",
+        project="splitted-repetitive-patterns-4/runs",
         exist_ok=True,
     )
     shutil.copy(
-        "/home/terrazalt/Documents/magister/Repetitive-Archetypes-Patterns-RL-APP/CNN/Repetitive-Patterns-MTI-2/runs/train/weights/best.pt",
+        "splitted-repetitive-patterns-4/runs/train/weights/best.pt",
         model_path,
     )
 
