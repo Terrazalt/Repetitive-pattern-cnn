@@ -341,6 +341,10 @@ class RLHFTrainer:
         Returns:
             Modelo entrenado con feedback
         """
+        # IMPORTACIONES NECESARIAS EN LA CABECERA (si no están ahí ya):
+        # from ultralytics.yolo.v8.detect import loss as detect_loss
+        # from .loss import RLHFLoss
+
         if self.model is None:
             raise ValueError("Modelo no cargado. Ejecuta load_model() primero.")
 
@@ -350,10 +354,18 @@ class RLHFTrainer:
                 "No existe configuración RLHF. Procesa feedback humano primero."
             )
 
+        original_loss_class = None
         try:
             print(
                 f"🚀 Continuando entrenamiento con feedback por {additional_epochs} épocas..."
             )
+
+            # Monkey-patching: sustituir temporalmente el loss
+            from ultralytics.yolo.v8.detect import loss as detect_loss
+            from .loss import RLHFLoss
+            print("🔧 Aplicando función de pérdida RLHF personalizada para este ciclo...")
+            original_loss_class = detect_loss.v8DetectionLoss
+            detect_loss.v8DetectionLoss = RLHFLoss
 
             # Cargar configuración RLHF para verificar
             with open(self.rlhf_config_path, "r") as f:
@@ -368,8 +380,7 @@ class RLHFTrainer:
                 data_yaml = self.DEFAULT_DATASET_PATH
                 print(f"⚠️  Usando dataset configurado: {data_yaml}")
 
-            # Continuar entrenamiento con parámetros optimizados para Roboflow
-            # El reward se aplicará automáticamente a través de la función de loss modificada
+            # Entrenamiento con RLHFLoss activa (el reward se aplicará aquí)
             self.model.train(
                 data=data_yaml,
                 epochs=additional_epochs,
@@ -378,7 +389,7 @@ class RLHFTrainer:
                 patience=50,
                 save=True,
                 verbose=True,
-                resume=False,  # No resume, continúa desde el estado actual
+                resume=False,
             )
 
             self.current_epoch += additional_epochs
@@ -390,6 +401,11 @@ class RLHFTrainer:
         except Exception as e:
             print(f"❌ Error durante entrenamiento con feedback: {e}")
             raise e
+        finally:
+            # Restaurar loss original
+            if original_loss_class:
+                print("🔧 Restaurando clase de loss original...")
+                detect_loss.v8DetectionLoss = original_loss_class
 
     def full_rlhf_cycle(
         self,
