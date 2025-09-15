@@ -12,6 +12,10 @@ from datetime import datetime
 from roboflow import Roboflow
 from dotenv import load_dotenv
 
+# Importaciones de loss e imports de ultralytics internos movidos aquí:
+from ultralytics.yolo.v8.detect import loss as detect_loss
+from .loss import RLHFLoss
+
 # Cargar variables de entorno
 load_dotenv()
 
@@ -361,8 +365,6 @@ class RLHFTrainer:
             )
 
             # Monkey-patching: sustituir temporalmente el loss
-            from ultralytics.yolo.v8.detect import loss as detect_loss
-            from .loss import RLHFLoss
             print("🔧 Aplicando función de pérdida RLHF personalizada para este ciclo...")
             original_loss_class = detect_loss.v8DetectionLoss
             detect_loss.v8DetectionLoss = RLHFLoss
