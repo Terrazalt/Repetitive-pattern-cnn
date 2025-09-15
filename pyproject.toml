@@ -19,5 +19,5 @@ dependencies = [
     "tools>=1.0.2",
     "torch>=2.7.0",
     "torchvision>=0.22.0",
-    "ultralytics>=8.3.131",
+    "ultralytics>=8.3.199",
 ]

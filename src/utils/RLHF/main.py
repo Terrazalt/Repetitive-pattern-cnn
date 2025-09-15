@@ -12,10 +12,6 @@ from datetime import datetime
 from roboflow import Roboflow
 from dotenv import load_dotenv
 
-# Importaciones de loss e imports de ultralytics internos movidos aquí:
-from ultralytics.yolo.v8.detect import loss as detect_loss
-from .loss import RLHFLoss
-
 # Cargar variables de entorno
 load_dotenv()
 
@@ -336,78 +332,78 @@ class RLHFTrainer:
         self, additional_epochs: int = 5, data_yaml: str | None = None
     ) -> YOLO:
         """
-        Continúa el entrenamiento del modelo utilizando el feedback humano ya procesado
-
-        Args:
-            additional_epochs: Épocas adicionales de entrenamiento con feedback
-            data_yaml: Ruta al archivo YAML de configuración de datos
-
-        Returns:
-            Modelo entrenado con feedback
+        Continúa el entrenamiento aplicando el feedback humano a través de un callback.
         """
-        # IMPORTACIONES NECESARIAS EN LA CABECERA (si no están ahí ya):
-        # from ultralytics.yolo.v8.detect import loss as detect_loss
-        # from .loss import RLHFLoss
-
         if self.model is None:
             raise ValueError("Modelo no cargado. Ejecuta load_model() primero.")
 
-        # Verificar que existe configuración RLHF
-        if not os.path.exists(self.rlhf_config_path):
-            raise ValueError(
-                "No existe configuración RLHF. Procesa feedback humano primero."
+        if not self.rlhf_config_path.exists():
+            raise FileNotFoundError(
+                f"No se encontró el archivo de configuración RLHF en {self.rlhf_config_path}. "
+                "Asegúrate de haber procesado el feedback primero."
             )
 
-        original_loss_class = None
-        try:
-            print(
-                f"🚀 Continuando entrenamiento con feedback por {additional_epochs} épocas..."
-            )
+        # --- Lógica del Callback RLHF ---
 
-            # Monkey-patching: sustituir temporalmente el loss
-            print("🔧 Aplicando función de pérdida RLHF personalizada para este ciclo...")
-            original_loss_class = detect_loss.v8DetectionLoss
-            detect_loss.v8DetectionLoss = RLHFLoss
+        # 1. Función auxiliar para leer el reward_factor del archivo JSON.
+        #    Se llamará en cada lote de entrenamiento para obtener el valor más reciente.
+        def get_reward_factor():
+            try:
+                with open(self.rlhf_config_path, "r") as f:
+                    config = json.load(f)
+                    # Devuelve 1.0 si el factor no está, para no afectar la loss.
+                    return float(config.get("reward_factor", 1.0))
+            except (FileNotFoundError, json.JSONDecodeError):
+                return 1.0  # Valor neutral si hay problemas leyendo el archivo.
 
-            # Cargar configuración RLHF para verificar
-            with open(self.rlhf_config_path, "r") as f:
-                rlhf_config = json.load(f)
+        # 2. Clase Callback que se conectará al ciclo de entrenamiento de YOLO.
+        class RLHFCallback:
+            def __init__(self, reward_function):
+                self.reward_function = reward_function
 
-            print(f"📊 Aplicando reward_factor: {rlhf_config['reward_factor']}")
-            print(f"📊 Calidad feedback: {rlhf_config.get('feedback_quality', 'N/A')}")
-            print(f"📊 Desde época: {rlhf_config['epoch_trigger']}")
+            def on_train_batch_end(self, trainer):
+                """
+                Este método es llamado automáticamente por Ultralytics
+                al final de cada lote de entrenamiento.
+                """
+                reward_factor = self.reward_function()
 
-            # Usar el dataset configurado si no se especifica
-            if data_yaml is None:
-                data_yaml = self.DEFAULT_DATASET_PATH
-                print(f"⚠️  Usando dataset configurado: {data_yaml}")
+                # Modificamos la loss del entrenador en tiempo real.
+                trainer.loss *= reward_factor
 
-            # Entrenamiento con RLHFLoss activa (el reward se aplicará aquí)
-            self.model.train(
-                data=data_yaml,
-                epochs=additional_epochs,
-                imgsz=640,
-                batch=16,
-                patience=50,
-                save=True,
-                verbose=True,
-                resume=False,
-            )
+                # (Opcional) Log para verificar que se está aplicando.
+                if hasattr(trainer, "log"):
+                    trainer.log("rlhf/reward_factor", reward_factor, on_step=True)
+                    trainer.log("rlhf/modified_loss", trainer.loss, on_step=True)
 
-            self.current_epoch += additional_epochs
-            print("✅ Entrenamiento con feedback completado.")
-            print(f"📈 Épocas totales: {self.current_epoch}")
+        print(f"🚀 Continuando entrenamiento con feedback por {additional_epochs} épocas...")
 
-            return self.model
+        # 3. Se crea una instancia de nuestro Callback.
+        rlhf_callback = RLHFCallback(get_reward_factor)
 
-        except Exception as e:
-            print(f"❌ Error durante entrenamiento con feedback: {e}")
-            raise e
-        finally:
-            # Restaurar loss original
-            if original_loss_class:
-                print("🔧 Restaurando clase de loss original...")
-                detect_loss.v8DetectionLoss = original_loss_class
+        # Determinar el dataset a usar.
+        if data_yaml is None:
+            data_yaml = self.DEFAULT_DATASET_PATH
+            print(f"⚠️  Usando dataset por defecto: {data_yaml}")
+
+        # 4. Llamamos a model.train() y le pasamos nuestro callback.
+        self.model.train(
+            data=data_yaml,
+            epochs=additional_epochs,
+            imgsz=640,
+            batch=16,
+            patience=50,
+            save=True,
+            verbose=True,
+            resume=False,
+            callbacks={"on_train_batch_end": rlhf_callback.on_train_batch_end},
+        )
+
+        self.current_epoch += additional_epochs
+        print("✅ Entrenamiento con feedback completado.")
+        print(f"📈 Épocas totales: {self.current_epoch}")
+
+        return self.model
 
     def full_rlhf_cycle(
         self,
